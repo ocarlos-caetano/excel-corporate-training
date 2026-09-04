@@ -29,37 +29,49 @@ that aren't always filled in.
 
 ## Approach
 
-Both fields were solved with **`TEXTJOIN`**:
+Both fields were solved with **`TEXTJOIN`**, referencing a **range of
+table columns** instead of listing each field individually:
 
 ```
-=TEXTJOIN("-", TRUE, [@Setor_Cod], [@Corredor], [@Prateleira])
-=TEXTJOIN(", ", TRUE, [@Nome_Item], [@Fabricante], [@Observacao])
+=TEXTJOIN("-", TRUE, Estoque_Itens[@[Setor_Cod]:[Prateleira]])
+=TEXTJOIN(", ", TRUE, Estoque_Itens[@[Nome_Item]:[Observacao]])
 ```
+
+Since `Setor_Cod`, `Corredor`, and `Prateleira` sit next to each other in
+the table (and likewise `Nome_Item`, `Fabricante`, `Observacao`), a single
+structured-reference range (`[Coluna_Inicial]:[Coluna_Final]`) grabs every
+value between them in one shot — shorter than listing each field
+separately with commas.
 
 I initially expected the first field (no blank values involved) to be a
 better fit for `CONCAT`, but after comparing the two:
 
-- `CONCAT` needs the delimiter **typed manually between every piece**:
-  `=CONCAT([@Setor_Cod], "-", [@Corredor], "-", [@Prateleira])` — the more
-  fields you join, the longer and more repetitive the formula gets, since
-  the separator has to be re-typed each time.
-- `TEXTJOIN` takes the delimiter **once**, as its first argument, and
-  applies it automatically between every value that follows — the formula
-  stays shorter and easier to read even as more fields get added.
+- `CONCAT` needs the delimiter **typed manually between every piece**, and
+  can't take a column range the way `TEXTJOIN` did here — each field has
+  to be listed individually: `=CONCAT([@Setor_Cod], "-", [@Corredor], "-",
+  [@Prateleira])`. The more fields joined, the longer and more repetitive
+  it gets.
+- `TEXTJOIN` takes the delimiter **once**, as its first argument, applies
+  it automatically between every value, and — as used here — can pull an
+  entire contiguous range of columns in a single reference.
 
 Since `TEXTJOIN` also handles the blank-skipping case that `CONCAT` can't,
-and produces a shorter formula even in the simple case, it was used for
-both fields.
+and produced the shortest formula in both cases, it was used for both
+fields.
 
 ## Lessons learned
 
 - `TEXTJOIN`'s `ignore_empty` argument (set to `TRUE`) automatically skips
   blank cells, preventing the double-comma / trailing-comma problem that
   would otherwise show up whenever `Fabricante` or `Observacao` is empty.
-- `CONCAT` requires the separator to be re-typed between every single
-  field being joined, which makes the formula noticeably longer and more
-  repetitive as the number of fields grows — `TEXTJOIN` only needs the
-  delimiter once, regardless of how many fields are joined.
+- When the fields being joined are **adjacent columns in the same table**,
+  referencing them as a range (`[Coluna_Inicial]:[Coluna_Final]`) is
+  shorter and easier to maintain than listing each one — if a new column
+  gets inserted between them later, the range picks it up automatically.
+- `CONCAT` requires each field to be listed and the separator re-typed
+  between every one, which makes the formula noticeably longer as the
+  number of fields grows — `TEXTJOIN` only needs the delimiter once,
+  regardless of how many fields (or how wide a range) is joined.
 - In practice, `TEXTJOIN` covers everything `CONCAT` does and more, so it's
   reasonable to default to `TEXTJOIN` unless there's a specific reason
   (e.g. signaling "this formula has no blank-handling logic") to use the
